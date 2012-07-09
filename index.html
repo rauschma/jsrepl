@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>jsrepl</title>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script type="text/javascript" src="jquery.jkey.min.js"></script>
+    <script type="text/javascript">
+        function endsWith(str, suffix) {
+            var index = str.lastIndexOf(suffix);
+            return index >= 0 && index === str.length - suffix.length;
+        }
+
+        function extractLine(str, pos) {
+            var begin = pos;
+            while(true) {
+                if (begin <= 0) break;
+                if (str.charAt(begin-1) === "\n") {
+                    break;
+                }
+                begin--;
+            }
+            var end = pos;
+            while(true) {
+                if (end >= str.length) {
+                    // End of text as terminating pseudo-character
+                    break;
+                }
+                if (str.charAt(end) === "\n") {
+                    break;
+                }
+                end++;
+            }
+            return str.slice(begin, end);
+        }
+
+        function determineTextToEval(text) {
+            var r = {};
+
+            var funcMatch = /^\s*function\s+(\w+)[\s\S]*[}]\s*$/.exec(text);
+            if (funcMatch) {
+                // Turn a function declaration (statement) into a function expression
+                r.textToEval = "("+text+")";
+                r.declName = funcMatch[1];
+                r.feedbackStr = "undefined\n";
+            } else {
+                var varMatch = /^var\s+(\w+)(\s*=\s*([\s\S]*))?$/.exec(text);
+                if (varMatch) {
+                    r.declName = varMatch[1];
+                    if (varMatch[3]) {
+                        r.textToEval = varMatch[3];
+                    } else {
+                        r.textToEval = "undefined";
+                    }
+                    r.feedbackStr = "undefined\n";
+                } else {
+                    r.textToEval = text;
+                }
+            }
+            return r;
+        }
+
+        function computeResult(r, context) {
+            var result;
+            try {
+                with (context) {  // ugly, but a work-around is complicated
+                    result = eval(r.textToEval);
+                    if (!r.feedbackStr) {
+                        r.feedbackStr = JSON.stringify(result, null, 4)+"\n";
+                    }
+                }
+            } catch (e) {
+                result = null;
+                r.feedbackStr = e+"\n";
+                r.declName = null;
+            }
+            return result;
+        }
+
+        function extractText(textArea) {
+            if (textArea.selectionStart === textArea.selectionEnd) {
+                return extractLine(textArea.value, textArea.selectionStart);
+            } else {
+                return textArea.value.slice(textArea.selectionStart, textArea.selectionEnd);
+            }
+        }
+
+        function appendFeedbackStr(textArea, feedbackStr) {
+            if (!endsWith(textArea.value, "\n")) {
+                feedbackStr = "\n" + feedbackStr;
+            }
+            textArea.value = textArea.value + feedbackStr;
+        }
+
+        function init() {
+            var context = {};
+            var textArea = $("#content").get(0);
+            $("#content").jkey('shift+return', function () {
+                var text = extractText(textArea);
+                var r = determineTextToEval(text);
+                var result = computeResult(r, context);
+
+                appendFeedbackStr(textArea, r.feedbackStr);
+
+                if (r.declName) {
+                    context[r.declName] = result;
+                }
+            });
+        }
+        $(document).ready(init);
+    </script>
+</head>
+<body>
+
+<h1>jsrepl</h1>
+
+<p>
+Shift-Return: evaluate selection or current line.
+</p>
+
+<textarea id="content" rows="40" cols="80"></textarea>
+
+</body>
+</html>
