@@ -106,6 +106,19 @@
                     context[r.declName] = result;
                 }
             });
+            $("#example").click(function () {
+                textArea.value = (
+                    '// Code: select and evaluate first (via Shift-Return)\n' +
+                    'function twice(x) {\n' +
+                    '    return x + x;\n' +
+                    '}\n' +
+                    '\n' +
+                    '// Examples: put cursor somewhere in the line, hit Shift-Return to evaluate \n' +
+                    'twice(123)\n' +
+                    'twice("abc")\n'
+                );
+                return false;
+            });
         }
         $(document).ready(init);
     </script>
@@ -115,7 +128,7 @@
 <h1>jsrepl</h1>
 
 <p>
-Shift-Return: evaluate selection or current line.
+Shift-Return: evaluate selection or current line. [<a href="" id="example">Insert example</a>]
 </p>
 
 <textarea id="content" rows="40" cols="80"></textarea>
