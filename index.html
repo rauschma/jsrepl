@@ -44,11 +44,12 @@
             // of __environment__. Prefix whitespace if you don't want that to happen.
             text = text.replace(/\nvar\s+(\w+)\s*=/g, "\n__environment__.$1 =");
             text = text.replace(/\nfunction\s+(\w+)/g, "\n__environment__.$1 = function");
+            text = text.replace(/console.log/g, "__console__.log");
 
             return text.slice(1);
         }
 
-        function computeResult(textToEval, __environment__) {
+        function computeResult(textToEval, __environment__, __console__) {
             try {
                 with (__environment__) {  // ugly, but work-arounds are complicated
                     var result = eval(textToEval);
@@ -75,12 +76,17 @@
         }
 
         function init() {
+            var cons = {
+                log: function (msg) {
+                    appendResultStr(textArea, msg+"\n");
+                }
+            };
             var environment = {};
             var textArea = $("#content").get(0);
             $("#content").jkey('shift+return', function () {
                 var text = extractText(textArea);
                 var textToEval = determineTextToEval(text);
-                var resultStr = computeResult(textToEval, environment);
+                var resultStr = computeResult(textToEval, environment, cons);
 
                 appendResultStr(textArea, resultStr);
             });
