@@ -11,6 +11,7 @@
             return index >= 0 && index === str.length - suffix.length;
         }
 
+        // A trailing newline is not included
         function extractLine(str, pos) {
             var begin = pos;
             while(true) {
@@ -37,13 +38,16 @@
         function determineTextToEval(text) {
             var r = {};
 
-            var funcMatch = /^\s*function\s+(\w+)[\s\S]*[}]\s*$/.exec(text);
+            // Handle a "global" function declaration
+            // Ignore function declarations that are indented by whitespace
+            var funcMatch = /^function\s+(\w+)[\s\S]*[}]\s*$/.exec(text);
             if (funcMatch) {
-                // Turn a function declaration (statement) into a function expression
                 r.textToEval = "("+text+")";
                 r.declName = funcMatch[1];
                 r.feedbackStr = "undefined\n";
             } else {
+                // Handle a "global" var declaration
+                // Ignore var declarations that are indented by whitespace
                 var varMatch = /^var\s+(\w+)(\s*=\s*([\s\S]*))?$/.exec(text);
                 if (varMatch) {
                     r.declName = varMatch[1];
