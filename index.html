@@ -36,49 +36,27 @@
         }
 
         function determineTextToEval(text) {
-            var r = {};
+            // Prefix a newline so that search and replace is simpler
+            // (remove it before returning the result)
+            text = "\n" + text;
 
-            // Handle a "global" function declaration
-            // Ignore function declarations that are indented by whitespace
-            var funcMatch = /^function\s+(\w+)[\s\S]*[}]\s*$/.exec(text);
-            if (funcMatch) {
-                r.textToEval = "("+text+")";
-                r.declName = funcMatch[1];
-                r.feedbackStr = "undefined\n";
-            } else {
-                // Handle a "global" var declaration
-                // Ignore var declarations that are indented by whitespace
-                var varMatch = /^var\s+(\w+)(\s*=\s*([\s\S]*))?$/.exec(text);
-                if (varMatch) {
-                    r.declName = varMatch[1];
-                    if (varMatch[3]) {
-                        r.textToEval = varMatch[3];
-                    } else {
-                        r.textToEval = "undefined";
-                    }
-                    r.feedbackStr = "undefined\n";
-                } else {
-                    r.textToEval = text;
-                }
-            }
-            return r;
+            // Variable and function declarations are handled by making them properties
+            // of __environment__. Prefix whitespace if you don't want that to happen.
+            text = text.replace(/\nvar\s+(\w+)\s*=/g, "\n__environment__.$1 =");
+            text = text.replace(/\nfunction\s+(\w+)/g, "\n__environment__.$1 = function");
+
+            return text.slice(1);
         }
 
-        function computeResult(r, context) {
-            var result;
+        function computeResult(textToEval, __environment__) {
             try {
-                with (context) {  // ugly, but a work-around is complicated
-                    result = eval(r.textToEval);
-                    if (!r.feedbackStr) {
-                        r.feedbackStr = JSON.stringify(result, null, 4)+"\n";
-                    }
+                with (__environment__) {  // ugly, but work-arounds are complicated
+                    var result = eval(textToEval);
+                    return JSON.stringify(result, null, 4)+"\n";
                 }
             } catch (e) {
-                result = null;
-                r.feedbackStr = e+"\n";
-                r.declName = null;
+                return e+"\n";
             }
-            return result;
         }
 
         function extractText(textArea) {
@@ -89,7 +67,7 @@
             }
         }
 
-        function appendFeedbackStr(textArea, feedbackStr) {
+        function appendResultStr(textArea, feedbackStr) {
             if (!endsWith(textArea.value, "\n")) {
                 feedbackStr = "\n" + feedbackStr;
             }
@@ -97,18 +75,14 @@
         }
 
         function init() {
-            var context = {};
+            var environment = {};
             var textArea = $("#content").get(0);
             $("#content").jkey('shift+return', function () {
                 var text = extractText(textArea);
-                var r = determineTextToEval(text);
-                var result = computeResult(r, context);
+                var textToEval = determineTextToEval(text);
+                var resultStr = computeResult(textToEval, environment);
 
-                appendFeedbackStr(textArea, r.feedbackStr);
-
-                if (r.declName) {
-                    context[r.declName] = result;
-                }
+                appendResultStr(textArea, resultStr);
             });
             $("#example").click(function () {
                 textArea.value = (
