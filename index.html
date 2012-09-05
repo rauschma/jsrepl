@@ -5,10 +5,14 @@
     <title>jsrepl</title>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script type="text/javascript" src="jquery.jkey.min.js"></script>
+    <script type="text/javascript" src="evaluator.js"></script>
     <script type="text/javascript">
         function endsWith(str, suffix) {
             var index = str.lastIndexOf(suffix);
             return index >= 0 && index === str.length - suffix.length;
+        }
+        function insert(all, pos, str) {
+            return all.slice(0, pos) + str + all.slice(pos);
         }
 
         // A trailing newline is not included
@@ -49,17 +53,6 @@
             return text.slice(1);
         }
 
-        function computeResult(textToEval, __environment__, __console__) {
-            try {
-                with (__environment__) {  // ugly, but work-arounds are complicated
-                    var result = eval(textToEval);
-                    return JSON.stringify(result, null, 4)+"\n";
-                }
-            } catch (e) {
-                return e+"\n";
-            }
-        }
-
         function extractText(textArea) {
             if (textArea.selectionStart === textArea.selectionEnd) {
                 return extractLine(textArea.value, textArea.selectionStart);
@@ -68,43 +61,70 @@
             }
         }
 
-        function appendResultStr(textArea, feedbackStr) {
-            if (!endsWith(textArea.value, "\n")) {
+        function appendResultStr(feedbackStr) {
+            var textArea = document.getElementById('output');
+            // Make sure that we start a new line
+            if (textArea.value.length > 0 && !endsWith(textArea.value, "\n")) {
                 feedbackStr = "\n" + feedbackStr;
             }
             textArea.value = textArea.value + feedbackStr;
+            textArea.scrollTop = textArea.scrollHeight;
+
+            // textArea.setSelectionRange(textArea.value.length, textArea.value.length);
+            // $("#input").focus();
+        }
+
+        function cursorIsAtLineEnd(textArea) {
+            if (textArea.selectionStart !== textArea.selectionEnd) {
+                // There is an active selection
+                return false;
+            }
+            var pos = textArea.selectionStart;
+            if (pos < textArea.value.length) {
+                return (textArea.value.charAt(pos) === "\n");
+            } else {
+                // Cursor is after last character
+                return true;
+            }
         }
 
         function init() {
             var cons = {
                 log: function (msg) {
-                    appendResultStr(textArea, msg+"\n");
+                    appendResultStr(msg + "\n");
                 }
             };
-            var environment = {};
-            var textArea = $("#content").get(0);
-            $("#content").jkey('shift+return', function () {
-                var text = extractText(textArea);
-                var textToEval = determineTextToEval(text);
-                var resultStr = computeResult(textToEval, environment, cons);
+            var evaluator = new Evaluator(cons);
 
-                appendResultStr(textArea, resultStr);
+            var environment = {};
+            var inputArea = document.getElementById("input");
+            $("#input").jkey('shift+return', function () {
+                var text = extractText(inputArea);
+                var textToEval = determineTextToEval(text);
+                var resultStr = evaluator.evaluate(textToEval);
+                appendResultStr(resultStr);
+
+                if (cursorIsAtLineEnd(inputArea)) {
+                    var pos = inputArea.selectionStart;
+                    inputArea.value = insert(inputArea.value, pos, "\n");
+                    inputArea.setSelectionRange(pos+1, pos+1);
+                }
             });
             $("#example1").click(function () {
-                textArea.value = (
-                    '// Code: select and evaluate first (via Shift-Return)\n' +
+                inputArea.value = (
+                    '// Step 1: evaluate function (select and hit Shift-Return)\n' +
                     'function twice(x) {\n' +
                     '    return x + x;\n' +
                     '}\n' +
                     '\n' +
-                    '// Examples: put cursor somewhere in the line, hit Shift-Return to evaluate \n' +
+                    '// Step 2: evaluate function call (put cursor somewhere in a line, hit Shift-Return)\n' +
                     'twice(123)\n' +
                     'twice("abc")\n'
                 );
                 return false;
             });
             $("#example2").click(function () {
-                textArea.value = (
+                inputArea.value = (
                         '// Select the complete loop below and hit Shift-Return\n' +
                         'for(var i=0; i<10; i++) {\n' +
                         '    console.log(i + ". Hello!");\n' +
@@ -121,15 +141,20 @@
 <h1>jsrepl</h1>
 
 <p>
-Shift-Return: evaluate selection or current line. Examples:
+    Shift-Return: evaluate current line or selection.
+</p>
+<p>
+    Examples:
 </p>
 <ul>
-    <li><a href="" id="example1">Function declaration and use</a></li>
+    <li><a href="" id="example1">Function declaration and call</a></li>
     <li><a href="" id="example2">console.log() in a <code>for</code> loop</a></li>
 </ul>
 
 
-<textarea id="content" rows="40" cols="80"></textarea>
+<textarea id="input" rows="20" cols="100" placeholder="Input"></textarea>
+<br>
+<textarea id="output" rows="20" cols="100" placeholder="Output"></textarea>
 <p>
 Project <a href="https://github.com/rauschma/jsrepl">jsrepl</a> on GitHub.
 </p>
