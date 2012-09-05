@@ -39,20 +39,6 @@
             return str.slice(begin, end);
         }
 
-        function determineTextToEval(text) {
-            // Prefix a newline so that search and replace is simpler
-            // (remove it before returning the result)
-            text = "\n" + text;
-
-            // Variable and function declarations are handled by making them properties
-            // of __environment__. Prefix whitespace if you don't want that to happen.
-            text = text.replace(/\nvar\s+(\w+)\s*=/g, "\n__environment__.$1 =");
-            text = text.replace(/\nfunction\s+(\w+)/g, "\n__environment__.$1 = function");
-            text = text.replace(/console.log/g, "__console__.log");
-
-            return text.slice(1);
-        }
-
         function extractText(textArea) {
             if (textArea.selectionStart === textArea.selectionEnd) {
                 return extractLine(textArea.value, textArea.selectionStart);
@@ -99,9 +85,7 @@
             var environment = {};
             var inputArea = document.getElementById("input");
             $("#input").jkey('shift+return', function () {
-                var text = extractText(inputArea);
-                var textToEval = determineTextToEval(text);
-                var resultStr = evaluator.evaluate(textToEval);
+                var resultStr = evaluator.evaluate(extractText(inputArea));
                 appendResultStr(resultStr);
 
                 if (cursorIsAtLineEnd(inputArea)) {
